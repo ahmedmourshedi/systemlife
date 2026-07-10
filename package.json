@@ -2,6 +2,11 @@
   "name": "lifeos-pwa-ar",
   "version": "2.0.0",
   "private": true,
+  "packageManager": "npm@10.9.2",
+  "engines": {
+    "node": "22.x",
+    "npm": "10.x"
+  },
   "description": "نظام عربي Mega لإدارة الحياة الشخصية يعمل كموقع PWA ولوحة تحكم للجوال واللابتوب مع لوحة أدمن ووحدات موسعة.",
   "scripts": {
     "dev": "next dev",

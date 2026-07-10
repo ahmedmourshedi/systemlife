@@ -1,0 +1,247 @@
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700;800&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  --background: 249 247 242;
+  --background-2: 240 247 245;
+  --surface: 255 255 255;
+  --surface-2: 248 250 252;
+  --surface-3: 241 245 249;
+  --text: 20 31 47;
+  --text-soft: 51 65 85;
+  --text-muted: 100 116 139;
+  --text-faint: 148 163 184;
+  --line: 226 232 240;
+  --brand: 13 148 136;
+  --brand-2: 37 99 235;
+  --brand-3: 14 165 233;
+  --success: 5 150 105;
+  --warning: 217 119 6;
+  --danger: 225 29 72;
+  --radius-xl: 1.25rem;
+  --radius-2xl: 1.6rem;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  font-size: 16px;
+}
+
+body {
+  min-height: 100vh;
+  overflow-x: hidden;
+  background:
+    radial-gradient(circle at 92% -8%, rgba(var(--brand), 0.13), transparent 30rem),
+    radial-gradient(circle at 2% 8%, rgba(var(--brand-2), 0.10), transparent 28rem),
+    radial-gradient(circle at 18% 98%, rgba(245, 158, 11, 0.10), transparent 26rem),
+    linear-gradient(140deg, rgb(var(--background)) 0%, rgb(var(--background-2)) 46%, rgb(255 251 235) 100%);
+  color: rgb(var(--text));
+  font-size: 1rem;
+  line-height: 1.7;
+}
+
+body::before {
+  pointer-events: none;
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  opacity: 0.62;
+  background-image:
+    linear-gradient(rgba(15, 23, 42, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15, 23, 42, 0.035) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(circle at top, black, transparent 72%);
+}
+
+body::after {
+  pointer-events: none;
+  content: "";
+  position: fixed;
+  inset: auto 5vw 2vh 5vw;
+  z-index: -1;
+  height: 38vh;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(var(--brand), .08), rgba(var(--brand-2), .07), rgba(var(--brand-3), .06));
+  filter: blur(80px);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
+input,
+select,
+textarea {
+  direction: rtl;
+}
+
+input[type="email"],
+input[type="password"],
+input[type="url"] {
+  direction: ltr;
+  text-align: left;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid rgba(var(--brand), 0.28);
+  outline-offset: 3px;
+}
+
+::selection {
+  background: rgba(var(--brand), 0.22);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: rgba(100, 116, 139, 0.36);
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.56);
+  background-clip: padding-box;
+}
+
+@media (max-width: 640px) {
+  :root {
+    --radius-xl: 1.05rem;
+    --radius-2xl: 1.25rem;
+  }
+
+  html {
+    font-size: 15.5px;
+  }
+
+  body {
+    background:
+      radial-gradient(circle at 88% -10%, rgba(var(--brand), 0.16), transparent 20rem),
+      radial-gradient(circle at 0% 48%, rgba(var(--brand-2), 0.08), transparent 19rem),
+      linear-gradient(145deg, rgb(250 248 244), rgb(241 247 245) 52%, rgb(255 251 235));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: .01ms !important;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-[var(--radius-2xl)] border border-slate-200 bg-white/80 p-4 shadow-soft backdrop-blur-xl transition sm:p-5;
+  }
+
+  .card:hover {
+    @apply border-teal-200/90 shadow-premium;
+  }
+
+  .card-premium {
+    @apply rounded-[var(--radius-2xl)] border border-slate-200 bg-white/90 p-4 shadow-premium backdrop-blur-xl sm:p-6;
+  }
+
+  .input {
+    @apply w-full rounded-2xl border border-slate-200 bg-white/95 px-4 py-3 text-[0.95rem] font-semibold text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-teal-200 focus:border-teal-500 focus:bg-white focus:ring-4 focus:ring-teal-500/10;
+  }
+
+  .label {
+    @apply mb-2 block text-sm font-extrabold text-slate-700;
+  }
+
+  .btn-primary {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-teal-600 via-sky-600 to-cyan-600 px-5 py-3 text-sm font-extrabold text-white shadow-brand transition hover:-translate-y-0.5 hover:shadow-glow-lg active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .btn-secondary {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white/85 px-5 py-3 text-sm font-extrabold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-teal-200 hover:bg-teal-50 hover:text-teal-800 active:translate-y-0;
+  }
+
+  .btn-ghost {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl px-4 py-2 text-sm font-extrabold text-slate-600 transition hover:bg-slate-100 hover:text-slate-950;
+  }
+
+  .pill {
+    @apply inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white/85 px-3 py-1 text-xs font-extrabold text-slate-600 shadow-inner-soft;
+  }
+
+  .glass-divider {
+    @apply border-slate-200;
+  }
+
+  .mobile-sheet {
+    padding-bottom: calc(1rem + var(--safe-bottom));
+  }
+
+  .bottom-safe {
+    padding-bottom: calc(6.75rem + var(--safe-bottom));
+  }
+
+  @media (max-width: 640px) {
+    .card,
+    .card-premium {
+      @apply p-4 shadow-soft;
+    }
+
+    .card:hover,
+    .card-premium:hover {
+      @apply translate-y-0 shadow-soft;
+    }
+
+    .input {
+      @apply min-h-12 rounded-[1.15rem] px-3.5 py-3 text-base;
+    }
+
+    .btn-primary,
+    .btn-secondary,
+    .btn-ghost {
+      @apply min-h-12 rounded-[1.15rem] px-4;
+    }
+
+    .bottom-safe {
+      padding-bottom: calc(8.25rem + var(--safe-bottom));
+    }
+
+    details > summary {
+      min-height: 2.75rem;
+      display: flex;
+      align-items: center;
+    }
+  }
+}

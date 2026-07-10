@@ -1,5 +1,5 @@
 {
-  "installCommand": "npm ci --no-audit --no-fund",
-  "buildCommand": "npm run build",
+  "installCommand": "corepack enable && corepack prepare pnpm@9.15.4 --activate && pnpm install --frozen-lockfile=false",
+  "buildCommand": "corepack enable && corepack prepare pnpm@9.15.4 --activate && pnpm run build",
   "framework": "nextjs"
 }

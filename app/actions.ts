@@ -355,6 +355,93 @@ export async function createTransferAction(formData: FormData) {
   revalidatePath("/app/finance");
 }
 
+export async function createDebtAction(formData: FormData) {
+  const { supabase, user } = await requireUser();
+  const totalAmount = positiveAmount(formData, "total_amount");
+  const paidAmount = numberValue(formData, "paid_amount", 0);
+
+  if (!totalAmount) {
+    redirect(`/app/debts?error=${encodeURIComponent("Debt amount must be greater than zero.")}`);
+  }
+
+  if (paidAmount < 0 || paidAmount > totalAmount) {
+    redirect(`/app/debts?error=${encodeURIComponent("Paid amount cannot be negative or greater than total amount.")}`);
+  }
+
+  const { error } = await supabase.from("debts").insert({
+    user_id: user.id,
+    title: text(formData, "title", "Debt"),
+    party: optionalText(formData, "party"),
+    debt_type: text(formData, "debt_type", "عليّ"),
+    total_amount: totalAmount,
+    paid_amount: Math.round(paidAmount * 100) / 100,
+    currency: text(formData, "currency", "SAR"),
+    debt_date: text(formData, "debt_date", todayISO()),
+    due_date: optionalText(formData, "due_date"),
+    status: paidAmount >= totalAmount ? "مدفوع" : "مفتوح",
+    notes: optionalText(formData, "notes")
+  });
+
+  if (error) {
+    redirect(`/app/debts?error=${encodeURIComponent(error.message)}`);
+  }
+
+  revalidatePath("/app");
+  revalidatePath("/app/debts");
+  redirect(`/app/debts?message=${encodeURIComponent("Debt saved.")}`);
+}
+
+export async function recordDebtRepaymentAction(formData: FormData) {
+  const { supabase } = await requireUser();
+  const amount = positiveAmount(formData);
+
+  if (!amount) {
+    redirect(`/app/debts?error=${encodeURIComponent("Repayment amount must be greater than zero.")}`);
+  }
+
+  const { error } = await supabase.rpc("record_debt_repayment", {
+    p_debt_id: text(formData, "debt_id"),
+    p_account_id: text(formData, "account_id"),
+    p_amount: amount,
+    p_currency: text(formData, "currency", "SAR"),
+    p_paid_at: text(formData, "paid_at", todayISO()),
+    p_notes: optionalText(formData, "notes"),
+    p_idempotency_key: null
+  });
+
+  if (error) {
+    redirect(`/app/debts?error=${encodeURIComponent(error.message)}`);
+  }
+
+  revalidatePath("/app");
+  revalidatePath("/app/debts");
+  revalidatePath("/app/finance");
+  redirect(`/app/debts?message=${encodeURIComponent("Repayment recorded.")}`);
+}
+
+export async function recordSubscriptionPaymentAction(formData: FormData) {
+  const { supabase } = await requireUser();
+  const amount = positiveAmount(formData);
+
+  const { error } = await supabase.rpc("record_subscription_payment", {
+    p_subscription_id: text(formData, "subscription_id"),
+    p_account_id: text(formData, "account_id"),
+    p_amount: amount,
+    p_currency: text(formData, "currency", "SAR"),
+    p_paid_at: text(formData, "paid_at", todayISO()),
+    p_notes: optionalText(formData, "notes"),
+    p_idempotency_key: null
+  });
+
+  if (error) {
+    redirect(`/app/finance?error=${encodeURIComponent(error.message)}`);
+  }
+
+  revalidatePath("/app");
+  revalidatePath("/app/finance");
+  redirect(`/app/finance?message=${encodeURIComponent("Subscription payment recorded.")}`);
+}
+
 export async function createMealAction(formData: FormData) {
   const { supabase, user } = await requireUser();
 

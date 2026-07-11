@@ -110,14 +110,16 @@ export async function getFinanceData() {
   const supabase = await createClient();
   const monthStart = monthStartISO();
 
-  const [expenses, incomes, accounts, budgets, subscriptions, transactions, transfers] = await Promise.all([
+  const [expenses, incomes, accounts, budgets, subscriptions, transactions, transfers, budgetExpenses, subscriptionPayments] = await Promise.all([
     supabase.from("expenses").select("*,category:categories(name),account:accounts(name)").gte("spent_at", monthStart).order("spent_at", { ascending: false }).limit(30),
     supabase.from("incomes").select("*,category:categories(name),account:accounts(name)").gte("received_at", monthStart).order("received_at", { ascending: false }).limit(30),
     supabase.from("accounts").select("*").eq("is_archived", false).order("created_at", { ascending: false }),
     supabase.from("budgets").select("*,category:categories(name)").order("month", { ascending: false }).limit(20),
     supabase.from("subscriptions").select("*").eq("is_active", true).order("next_payment_at", { ascending: true }).limit(20),
     supabase.from("financial_transactions").select("*").gte("transaction_date", monthStart).order("transaction_date", { ascending: false }).order("created_at", { ascending: false }).limit(40),
-    supabase.from("account_transfers").select("*").gte("transfer_at", monthStart).order("transfer_at", { ascending: false }).limit(20)
+    supabase.from("account_transfers").select("*").gte("transfer_at", monthStart).order("transfer_at", { ascending: false }).limit(20),
+    supabase.from("expenses").select("category_id,amount,spent_at").gte("spent_at", monthStart),
+    supabase.from("subscription_payments").select("*,subscription:subscriptions(name),account:accounts(name)").gte("paid_at", monthStart).order("paid_at", { ascending: false }).limit(20)
   ]);
 
   return {
@@ -127,7 +129,10 @@ export async function getFinanceData() {
     budgets: (budgets.data ?? []) as Row[],
     subscriptions: (subscriptions.data ?? []) as Row[],
     transactions: (transactions.data ?? []) as Row[],
-    transfers: (transfers.data ?? []) as Row[]
+    transfers: (transfers.data ?? []) as Row[],
+    budgetExpenses: (budgetExpenses.data ?? []) as Row[],
+    subscriptionPayments: (subscriptionPayments.data ?? []) as Row[],
+    error: expenses.error?.message ?? incomes.error?.message ?? accounts.error?.message ?? budgets.error?.message ?? subscriptions.error?.message ?? transactions.error?.message ?? transfers.error?.message ?? budgetExpenses.error?.message ?? subscriptionPayments.error?.message ?? null
   };
 }
 
@@ -154,6 +159,25 @@ export async function getQuickAddSuggestions() {
     expenseCategories: rows.filter((row) => row.type === "expense").map((row) => String(row.name)).filter(Boolean).slice(0, 8),
     incomeCategories: rows.filter((row) => row.type === "income").map((row) => String(row.name)).filter(Boolean).slice(0, 8),
     accounts: ((accounts.data ?? []) as Row[]).map((row) => String(row.name)).filter(Boolean).slice(0, 6)
+  };
+}
+
+export async function getDebtData() {
+  const supabase = await createClient();
+
+  const [debts, repayments, accounts, people] = await Promise.all([
+    supabase.from("debts").select("*").order("due_date", { ascending: true, nullsFirst: false }).order("created_at", { ascending: false }),
+    supabase.from("debt_repayments").select("*,debt:debts(title,party),account:accounts(name)").order("paid_at", { ascending: false }).limit(30),
+    supabase.from("accounts").select("*").eq("is_archived", false).order("updated_at", { ascending: false }),
+    supabase.from("people").select("id,full_name").order("updated_at", { ascending: false }).limit(30)
+  ]);
+
+  return {
+    debts: (debts.data ?? []) as Row[],
+    repayments: (repayments.data ?? []) as Row[],
+    accounts: (accounts.data ?? []) as Row[],
+    people: (people.data ?? []) as Row[],
+    error: debts.error?.message ?? repayments.error?.message ?? accounts.error?.message ?? people.error?.message ?? null
   };
 }
 

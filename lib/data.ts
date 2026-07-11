@@ -110,12 +110,14 @@ export async function getFinanceData() {
   const supabase = await createClient();
   const monthStart = monthStartISO();
 
-  const [expenses, incomes, accounts, budgets, subscriptions] = await Promise.all([
+  const [expenses, incomes, accounts, budgets, subscriptions, transactions, transfers] = await Promise.all([
     supabase.from("expenses").select("*,category:categories(name),account:accounts(name)").gte("spent_at", monthStart).order("spent_at", { ascending: false }).limit(30),
     supabase.from("incomes").select("*,category:categories(name),account:accounts(name)").gte("received_at", monthStart).order("received_at", { ascending: false }).limit(30),
     supabase.from("accounts").select("*").eq("is_archived", false).order("created_at", { ascending: false }),
     supabase.from("budgets").select("*,category:categories(name)").order("month", { ascending: false }).limit(20),
-    supabase.from("subscriptions").select("*").eq("is_active", true).order("next_payment_at", { ascending: true }).limit(20)
+    supabase.from("subscriptions").select("*").eq("is_active", true).order("next_payment_at", { ascending: true }).limit(20),
+    supabase.from("financial_transactions").select("*").gte("transaction_date", monthStart).order("transaction_date", { ascending: false }).order("created_at", { ascending: false }).limit(40),
+    supabase.from("account_transfers").select("*").gte("transfer_at", monthStart).order("transfer_at", { ascending: false }).limit(20)
   ]);
 
   return {
@@ -123,7 +125,9 @@ export async function getFinanceData() {
     incomes: (incomes.data ?? []) as Row[],
     accounts: (accounts.data ?? []) as Row[],
     budgets: (budgets.data ?? []) as Row[],
-    subscriptions: (subscriptions.data ?? []) as Row[]
+    subscriptions: (subscriptions.data ?? []) as Row[],
+    transactions: (transactions.data ?? []) as Row[],
+    transfers: (transfers.data ?? []) as Row[]
   };
 }
 

@@ -21,6 +21,11 @@ function numberValue(formData: FormData, key: string, fallback = 0) {
   return Number.isFinite(value) ? value : fallback;
 }
 
+function positiveAmount(formData: FormData, key = "amount") {
+  const value = numberValue(formData, key);
+  return Number.isFinite(value) && value > 0 ? Math.round(value * 100) / 100 : null;
+}
+
 async function requireUser() {
   const supabase = await createClient();
   const {
@@ -94,6 +99,46 @@ async function findOrCreateAccount(
     .single();
 
   return created?.id as string | null;
+}
+
+async function createFinancialMovement({
+  supabase,
+  type,
+  title,
+  amount,
+  currency,
+  accountId,
+  categoryId,
+  date,
+  paymentMethod,
+  source,
+  notes
+}: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  type: "income" | "expense";
+  title: string;
+  amount: number;
+  currency: string;
+  accountId: string;
+  categoryId: string | null;
+  date: string;
+  paymentMethod?: string | null;
+  source?: string | null;
+  notes?: string | null;
+}) {
+  return supabase.rpc("create_financial_movement", {
+    p_transaction_type: type,
+    p_title: title,
+    p_amount: amount,
+    p_currency: currency,
+    p_account_id: accountId,
+    p_category_id: categoryId,
+    p_transaction_date: date,
+    p_payment_method: paymentMethod,
+    p_source: source,
+    p_notes: notes,
+    p_idempotency_key: null
+  });
 }
 
 export async function signInAction(formData: FormData) {
@@ -206,20 +251,35 @@ export async function updatePersonalSetupAction(formData: FormData) {
 export async function createExpenseAction(formData: FormData) {
   const { supabase, user } = await requireUser();
   const currency = text(formData, "currency", "SAR");
-  const categoryId = await findOrCreateCategory(supabase, user.id, text(formData, "category_name", "عام"), "expense");
-  const accountId = await findOrCreateAccount(supabase, user.id, text(formData, "account_name", "الحساب الرئيسي"), currency);
+  const amount = positiveAmount(formData);
 
-  await supabase.from("expenses").insert({
-    user_id: user.id,
-    account_id: accountId,
-    category_id: categoryId,
-    title: text(formData, "title", "مصروف"),
-    amount: numberValue(formData, "amount"),
+  if (!amount) {
+    redirect(`/app/finance?error=${encodeURIComponent("Amount must be greater than zero.")}`);
+  }
+
+  const categoryId = await findOrCreateCategory(supabase, user.id, text(formData, "category_name", "General"), "expense");
+  const accountId = await findOrCreateAccount(supabase, user.id, text(formData, "account_name", "Main Account"), currency);
+
+  if (!accountId) {
+    redirect(`/app/finance?error=${encodeURIComponent("Account could not be created.")}`);
+  }
+
+  const { error } = await createFinancialMovement({
+    supabase,
+    type: "expense",
+    title: text(formData, "title", "Expense"),
+    amount,
     currency,
-    spent_at: text(formData, "spent_at", todayISO()),
-    payment_method: text(formData, "payment_method", "غير محدد"),
+    accountId,
+    categoryId,
+    date: text(formData, "spent_at", todayISO()),
+    paymentMethod: text(formData, "payment_method", "Unspecified"),
     notes: optionalText(formData, "notes")
   });
+
+  if (error) {
+    redirect(`/app/finance?error=${encodeURIComponent(error.message)}`);
+  }
 
   revalidatePath("/app");
   revalidatePath("/app/finance");
@@ -228,20 +288,68 @@ export async function createExpenseAction(formData: FormData) {
 export async function createIncomeAction(formData: FormData) {
   const { supabase, user } = await requireUser();
   const currency = text(formData, "currency", "SAR");
-  const categoryId = await findOrCreateCategory(supabase, user.id, text(formData, "category_name", "عام"), "income");
-  const accountId = await findOrCreateAccount(supabase, user.id, text(formData, "account_name", "الحساب الرئيسي"), currency);
+  const amount = positiveAmount(formData);
 
-  await supabase.from("incomes").insert({
-    user_id: user.id,
-    account_id: accountId,
-    category_id: categoryId,
-    title: text(formData, "title", "دخل"),
-    amount: numberValue(formData, "amount"),
+  if (!amount) {
+    redirect(`/app/finance?error=${encodeURIComponent("Amount must be greater than zero.")}`);
+  }
+
+  const categoryId = await findOrCreateCategory(supabase, user.id, text(formData, "category_name", "General"), "income");
+  const accountId = await findOrCreateAccount(supabase, user.id, text(formData, "account_name", "Main Account"), currency);
+
+  if (!accountId) {
+    redirect(`/app/finance?error=${encodeURIComponent("Account could not be created.")}`);
+  }
+
+  const { error } = await createFinancialMovement({
+    supabase,
+    type: "income",
+    title: text(formData, "title", "Income"),
+    amount,
     currency,
-    received_at: text(formData, "received_at", todayISO()),
-    source: text(formData, "source", "غير محدد"),
+    accountId,
+    categoryId,
+    date: text(formData, "received_at", todayISO()),
+    source: text(formData, "source", "Unspecified"),
     notes: optionalText(formData, "notes")
   });
+
+  if (error) {
+    redirect(`/app/finance?error=${encodeURIComponent(error.message)}`);
+  }
+
+  revalidatePath("/app");
+  revalidatePath("/app/finance");
+}
+
+export async function createTransferAction(formData: FormData) {
+  const { supabase } = await requireUser();
+  const amount = positiveAmount(formData);
+  const sourceAccountId = text(formData, "source_account_id");
+  const destinationAccountId = text(formData, "destination_account_id");
+
+  if (!amount) {
+    redirect(`/app/finance?error=${encodeURIComponent("Transfer amount must be greater than zero.")}`);
+  }
+
+  if (!sourceAccountId || !destinationAccountId || sourceAccountId === destinationAccountId) {
+    redirect(`/app/finance?error=${encodeURIComponent("Choose two different accounts for the transfer.")}`);
+  }
+
+  const { error } = await supabase.rpc("create_account_transfer", {
+    p_source_account_id: sourceAccountId,
+    p_destination_account_id: destinationAccountId,
+    p_amount: amount,
+    p_fee: positiveAmount(formData, "fee") ?? 0,
+    p_currency: text(formData, "currency", "SAR"),
+    p_transfer_at: text(formData, "transfer_at", todayISO()),
+    p_notes: optionalText(formData, "notes"),
+    p_idempotency_key: null
+  });
+
+  if (error) {
+    redirect(`/app/finance?error=${encodeURIComponent(error.message)}`);
+  }
 
   revalidatePath("/app");
   revalidatePath("/app/finance");
@@ -328,37 +436,57 @@ export async function createQuickAddAction(formData: FormData) {
   const notes = optionalText(formData, "notes");
 
   if (entryType === "expense") {
-    const categoryId = await findOrCreateCategory(supabase, user.id, text(formData, "category_name", "عام"), "expense");
-    const accountId = await findOrCreateAccount(supabase, user.id, text(formData, "account_name", "الحساب الرئيسي"), currency);
+    const amount = positiveAmount(formData);
+    const categoryId = await findOrCreateCategory(supabase, user.id, text(formData, "category_name", "General"), "expense");
+    const accountId = await findOrCreateAccount(supabase, user.id, text(formData, "account_name", "Main Account"), currency);
 
-    await supabase.from("expenses").insert({
-      user_id: user.id,
-      account_id: accountId,
-      category_id: categoryId,
+    if (!amount || !accountId) {
+      redirect(`/app/quick-add?type=expense&error=${encodeURIComponent("Amount and account are required.")}`);
+    }
+
+    const { error } = await createFinancialMovement({
+      supabase,
+      type: "expense",
       title,
-      amount: numberValue(formData, "amount"),
+      amount,
       currency,
-      spent_at: text(formData, "date", todayISO()),
-      payment_method: text(formData, "payment_method", "غير محدد"),
+      accountId,
+      categoryId,
+      date: text(formData, "date", todayISO()),
+      paymentMethod: text(formData, "payment_method", "Unspecified"),
       notes
     });
+
+    if (error) {
+      redirect(`/app/quick-add?type=expense&error=${encodeURIComponent(error.message)}`);
+    }
 
     revalidatePath("/app/finance");
   } else if (entryType === "income") {
-    const categoryId = await findOrCreateCategory(supabase, user.id, text(formData, "category_name", "عام"), "income");
-    const accountId = await findOrCreateAccount(supabase, user.id, text(formData, "account_name", "الحساب الرئيسي"), currency);
+    const amount = positiveAmount(formData);
+    const categoryId = await findOrCreateCategory(supabase, user.id, text(formData, "category_name", "General"), "income");
+    const accountId = await findOrCreateAccount(supabase, user.id, text(formData, "account_name", "Main Account"), currency);
 
-    await supabase.from("incomes").insert({
-      user_id: user.id,
-      account_id: accountId,
-      category_id: categoryId,
+    if (!amount || !accountId) {
+      redirect(`/app/quick-add?type=income&error=${encodeURIComponent("Amount and account are required.")}`);
+    }
+
+    const { error } = await createFinancialMovement({
+      supabase,
+      type: "income",
       title,
-      amount: numberValue(formData, "amount"),
+      amount,
       currency,
-      received_at: text(formData, "date", todayISO()),
-      source: text(formData, "source", "غير محدد"),
+      accountId,
+      categoryId,
+      date: text(formData, "date", todayISO()),
+      source: text(formData, "source", "Unspecified"),
       notes
     });
+
+    if (error) {
+      redirect(`/app/quick-add?type=income&error=${encodeURIComponent(error.message)}`);
+    }
 
     revalidatePath("/app/finance");
   } else if (entryType === "task") {
@@ -466,20 +594,31 @@ export async function processInboxItemAction(formData: FormData) {
 
   if (actionType === "expense") {
     const currency = text(formData, "currency", "SAR");
-    const categoryId = await findOrCreateCategory(supabase, user.id, text(formData, "category_name", "عام"), "expense");
-    const accountId = await findOrCreateAccount(supabase, user.id, text(formData, "account_name", "الحساب الرئيسي"), currency);
+    const amount = positiveAmount(formData);
+    const categoryId = await findOrCreateCategory(supabase, user.id, text(formData, "category_name", "General"), "expense");
+    const accountId = await findOrCreateAccount(supabase, user.id, text(formData, "account_name", "Main Account"), currency);
 
-    await supabase.from("expenses").insert({
-      user_id: user.id,
-      account_id: accountId,
-      category_id: categoryId,
+    if (!amount || !accountId) {
+      redirect(`/app/inbox?error=${encodeURIComponent("Amount and account are required.")}`);
+    }
+
+    const { error } = await createFinancialMovement({
+      supabase,
+      type: "expense",
       title,
-      amount: numberValue(formData, "amount"),
+      amount,
       currency,
-      spent_at: text(formData, "spent_at", todayISO()),
-      payment_method: text(formData, "payment_method", "غير محدد"),
+      accountId,
+      categoryId,
+      date: text(formData, "spent_at", todayISO()),
+      paymentMethod: text(formData, "payment_method", "Unspecified"),
       notes
     });
+
+    if (error) {
+      redirect(`/app/inbox?error=${encodeURIComponent(error.message)}`);
+    }
+
     revalidatePath("/app/finance");
   }
 

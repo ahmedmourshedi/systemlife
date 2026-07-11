@@ -11,9 +11,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "check": "npm run typecheck && npm run build",
+    "test:finance": "node scripts/finance-foundation.test.mjs",
     "db:note": "echo \"شغل database/schema.sql داخل Supabase SQL Editor\""
   },
   "dependencies": {
